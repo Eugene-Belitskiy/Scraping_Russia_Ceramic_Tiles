@@ -65,6 +65,7 @@ venv.bak/
 # JSON data files (результаты парсинга)
 *.json
 !requirements.json
+!docs/examples/*.json
 
 # ChromeDriver
 ChromeDriver/
