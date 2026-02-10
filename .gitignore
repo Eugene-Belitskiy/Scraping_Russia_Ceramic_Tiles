@@ -65,7 +65,6 @@ venv.bak/
 # JSON data files (результаты парсинга)
 *.json
 !requirements.json
-!MERGED_RUSSIA/data_finally.json
 
 # ChromeDriver
 ChromeDriver/
