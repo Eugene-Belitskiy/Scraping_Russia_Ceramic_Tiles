@@ -73,7 +73,7 @@ Scraping_Russia/
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/YOUR_USERNAME/Scraping_Russia.git
+git clone https://github.com/Eugene-Belitskiy/Scraping_Russia.git
 cd Scraping_Russia
 
 # Установить зависимости
