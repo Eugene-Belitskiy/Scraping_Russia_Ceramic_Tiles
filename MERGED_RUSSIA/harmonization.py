@@ -512,51 +512,51 @@ def harmonize_record(record: dict) -> dict:
     harmonized = record.copy()
 
     # Применяем гармонизацию к каждому полю
-    if 'Единица измерения цены' in harmonized:
-        harmonized['Единица измерения цены'] = harmonize_measurement_unit(
-            harmonized.get('Единица измерения цены', '')
+    if 'price_unit' in harmonized:
+        harmonized['price_unit'] = harmonize_measurement_unit(
+            harmonized.get('price_unit', '')
         )
 
-    if 'Дизайн' in harmonized:
-        harmonized['Дизайн'] = harmonize_design(
-            harmonized.get('Дизайн', '')
+    if 'design' in harmonized:
+        harmonized['design'] = harmonize_design(
+            harmonized.get('design', '')
         )
 
-    if 'Цвет' in harmonized:
-        harmonized['Цвет'] = harmonize_color(
-            harmonized.get('Цвет', '')
+    if 'color' in harmonized:
+        harmonized['color'] = harmonize_color(
+            harmonized.get('color', '')
         )
 
-    if 'Тип поверхности' in harmonized:
-        harmonized['Тип поверхности'] = harmonize_surface_type(
-            harmonized.get('Тип поверхности', '')
+    if 'surface_type' in harmonized:
+        harmonized['surface_type'] = harmonize_surface_type(
+            harmonized.get('surface_type', '')
         )
 
-    if 'Структура' in harmonized:
-        harmonized['Структура'] = harmonize_structure(
-            harmonized.get('Структура', '')
+    if 'structure' in harmonized:
+        harmonized['structure'] = harmonize_structure(
+            harmonized.get('structure', '')
         )
 
-    if 'Бренд' in harmonized:
-        harmonized['Бренд'] = harmonize_brand(
-            harmonized.get('Бренд', '')
+    if 'brand' in harmonized:
+        harmonized['brand'] = harmonize_brand(
+            harmonized.get('brand', '')
         )
 
-    if 'Наличие' in harmonized:
-        harmonized['Наличие'] = harmonize_availability(
-            harmonized.get('Наличие', ''),
-            harmonized.get('Магазин', '')
+    if 'availability' in harmonized:
+        harmonized['availability'] = harmonize_availability(
+            harmonized.get('availability', ''),
+            harmonized.get('store', '')
         )
 
-    # Обновляем Бренд-Страна после гармонизации бренда
-    if 'Бренд' in harmonized and 'Страна' in harmonized:
-        brand = harmonized.get('Бренд', '')
-        country = harmonized.get('Страна', '')
+    # Обновляем brand_country после гармонизации бренда
+    if 'brand' in harmonized and 'country' in harmonized:
+        brand = harmonized.get('brand', '')
+        country = harmonized.get('country', '')
         if brand and country:
-            harmonized['Бренд-Страна'] = f'{brand} ({country})'
+            harmonized['brand_country'] = f'{brand} ({country})'
         elif brand:
-            harmonized['Бренд-Страна'] = brand
+            harmonized['brand_country'] = brand
         elif country:
-            harmonized['Бренд-Страна'] = country
+            harmonized['brand_country'] = country
 
     return harmonized

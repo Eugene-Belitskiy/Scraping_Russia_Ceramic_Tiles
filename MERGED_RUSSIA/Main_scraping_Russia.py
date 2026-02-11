@@ -159,42 +159,42 @@ def create_data_card(line: Dict, store: str) -> Dict:
     Применяет гармонизацию данных для приведения к единому стилю
     """
     raw_card = {
-        'Полное Наименование': line.get('name', ''),
-        'Действующая цена': line.get('price'),
-        "Диапазон действующей цены": line.get('price_range'),
-        "Размер скидки": line.get('sale'),
-        "Диапазон размера скидки": line.get('sale_range'),
-        'Единица измерения цены': line.get('mesure', ''),
-        'Ссылка': line.get('link', ''),
-        'Магазин': store,
-        'Наличие': line.get('availability', ''),
-        'Дата мониторинга': line.get('date_scrap', ''),
-        'Время мониторинга': line.get('time_scrap', ''),
-        'Цвет': line.get('colour', ''),
-        'Коллекция': line.get('collection', ''),
-        'Бренд': line.get('brand', ''),
-        'Страна': line.get('country', ''),
-        'Бренд-Страна': line.get('brand_country', ''),
-        'Толщина': line.get('thickness'),
-        'Оригинальный формат': line.get('original_format', ''),
-        'Формат': line.get('format'),
-        'Дизайн': line.get('design', ''),
-        'Материал': line.get('material', ''),
-        'Тип поверхности': line.get('type_of_surface', ''),
-        'Тип покрытия (полир/лапп/неполир)': line.get('surface', ''),
-        'Структура': line.get('structure', ''),
-        "Количество лиц": line.get('number_of_pictures', ''),
-        'Общий остаток': line.get('total_base_stock', ''),
-        'Упаковка': line.get('packaging'),
-        'Общий остаток в единицах измерения': line.get('total_stock')
+        'name': line.get('name', ''),
+        'price': line.get('price'),
+        'price_range': line.get('price_range'),
+        'discount': line.get('sale'),
+        'discount_range': line.get('sale_range'),
+        'price_unit': line.get('mesure', ''),
+        'url': line.get('link', ''),
+        'store': store,
+        'availability': line.get('availability', ''),
+        'date': line.get('date_scrap', ''),
+        'time': line.get('time_scrap', ''),
+        'color': line.get('colour', ''),
+        'collection': line.get('collection', ''),
+        'brand': line.get('brand', ''),
+        'country': line.get('country', ''),
+        'brand_country': line.get('brand_country', ''),
+        'thickness': line.get('thickness'),
+        'original_format': line.get('original_format', ''),
+        'format': line.get('format'),
+        'design': line.get('design', ''),
+        'material': line.get('material', ''),
+        'surface_type': line.get('type_of_surface', ''),
+        'surface_finish': line.get('surface', ''),
+        'structure': line.get('structure', ''),
+        'patterns_count': line.get('number_of_pictures', ''),
+        'total_stock': line.get('total_base_stock', ''),
+        'package_size': line.get('packaging'),
+        'total_stock_units': line.get('total_stock')
     }
 
     # Применяем гармонизацию данных
     harmonized = harmonize_record(raw_card)
 
     # Добавляем поля с основными (первыми) значениями для комбинаций
-    harmonized['Основной дизайн'] = get_primary_design(harmonized.get('Дизайн', ''))
-    harmonized['Основной цвет'] = get_primary_color(harmonized.get('Цвет', ''))
+    harmonized['primary_design'] = get_primary_design(harmonized.get('design', ''))
+    harmonized['primary_color'] = get_primary_color(harmonized.get('color', ''))
 
     return harmonized
 
