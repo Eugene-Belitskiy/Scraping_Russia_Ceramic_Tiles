@@ -1,5 +1,4 @@
 Мониторинг рынка керамической плитки России
-Russian Ceramic Tile Market Monitor
 
 ## Описание проекта
 
