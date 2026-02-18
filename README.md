@@ -338,7 +338,7 @@ python MERGED_RUSSIA/Main_scraping_Russia.py
 ## Автор
 
 **Проект разработан для ОАО "КЕРАМИН"**
-Для вопросов и предложений: [создайте Issue](https://github.com/Eugene-Belitskiy/Scraping_Russia/issues)
+Для вопросов и предложений: [создайте Issue](https://github.com/Eugene-Belitskiy/Scraping_Russia_Ceramic_Tiles/issues)
 
 ---
 
