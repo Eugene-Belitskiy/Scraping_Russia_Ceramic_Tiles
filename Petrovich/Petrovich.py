@@ -63,42 +63,64 @@ def load_cookies(driver):
         return False
 
 
-def init_driver_with_cookies():
-    """Создает драйвер и загружает cookies, при необходимости просит решить капчу"""
+def _create_driver(block_images=True):
+    """Создает драйвер с опциональной блокировкой изображений"""
     options = uc.ChromeOptions()
-    prefs = {
-        "profile.managed_default_content_settings.images": 2,
-        "profile.default_content_setting_values.images": 2,
-        "profile.managed_default_content_settings.media": 2
-    }
-    options.add_experimental_option("prefs", prefs)
+    if block_images:
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.images": 2,
+            "profile.managed_default_content_settings.media": 2
+        }
+        options.add_experimental_option("prefs", prefs)
 
     driver = uc.Chrome(
         options=options,
         use_subprocess=True,
         version_main=144
     )
+    return driver
 
-    # Открываем сайт для установки домена
-    driver.get("https://petrovich.ru")
-    time.sleep(2)
 
-    # Пробуем загрузить сохраненные cookies
-    if load_cookies(driver):
-        # Перезагружаем страницу с cookies
+def init_driver_with_cookies():
+    """Создает драйвер и загружает cookies, при необходимости просит решить капчу"""
+
+    # 1. Пробуем быстрый путь: драйвер с блокировкой картинок + cookies
+    if os.path.exists(COOKIES_FILE):
+        driver = _create_driver(block_images=True)
+        driver.get("https://petrovich.ru")
+        time.sleep(2)
+        load_cookies(driver)
         driver.get("https://petrovich.ru")
         time.sleep(2)
 
-        # Проверяем: если капча все еще есть, просим решить вручную
-        if _is_captcha_present(driver):
-            print("[!] Cookies устарели, нужно решить капчу заново")
-            _wait_for_manual_captcha(driver)
-            save_cookies(driver)
-    else:
-        # Нет сохраненных cookies -- проверяем наличие капчи
-        if _is_captcha_present(driver):
-            _wait_for_manual_captcha(driver)
-            save_cookies(driver)
+        if not _is_captcha_present(driver):
+            print("[OK] Cookies работают, капчи нет")
+            return driver
+
+        # Cookies не помогли -- закрываем этот драйвер
+        print("[!] Cookies устарели, нужно решить капчу заново")
+        end_driver(driver)
+
+    # 2. Открываем браузер С картинками для решения капчи
+    print("[...] Открываю браузер с картинками для решения капчи...")
+    driver = _create_driver(block_images=False)
+    driver.get("https://petrovich.ru")
+    time.sleep(2)
+
+    if _is_captcha_present(driver):
+        _wait_for_manual_captcha(driver)
+    save_cookies(driver)
+    end_driver(driver)
+
+    # 3. Создаем рабочий драйвер БЕЗ картинок + свежие cookies
+    driver = _create_driver(block_images=True)
+    driver.get("https://petrovich.ru")
+    time.sleep(2)
+    load_cookies(driver)
+    driver.get("https://petrovich.ru")
+    time.sleep(2)
+    print("[OK] Рабочий драйвер готов")
 
     return driver
 
