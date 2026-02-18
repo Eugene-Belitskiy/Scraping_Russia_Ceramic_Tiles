@@ -1,6 +1,7 @@
 import json
 import time
 import os
+import pickle
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -13,6 +14,7 @@ start_time = time.time()
 
 # Определяем директорию скрипта
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+COOKIES_FILE = os.path.join(SCRIPT_DIR, 'petrovich_cookies.pkl')
 cur_data_file = datetime.now().strftime("%m.%Y")
 
 
@@ -30,6 +32,94 @@ def end_driver(driver):
     except Exception:
         # Игнорируем ошибки закрытия, например "Неверный дескриптор"
         pass
+
+
+def save_cookies(driver):
+    """Сохраняет cookies браузера в файл"""
+    with open(COOKIES_FILE, 'wb') as f:
+        pickle.dump(driver.get_cookies(), f)
+    print("[OK] Cookies сохранены в petrovich_cookies.pkl")
+
+
+def load_cookies(driver):
+    """Загружает cookies из файла в браузер"""
+    if not os.path.exists(COOKIES_FILE):
+        return False
+    try:
+        with open(COOKIES_FILE, 'rb') as f:
+            cookies = pickle.load(f)
+        for cookie in cookies:
+            # Удаляем проблемные поля, которые могут вызвать ошибку
+            cookie.pop('sameSite', None)
+            cookie.pop('storeId', None)
+            try:
+                driver.add_cookie(cookie)
+            except Exception:
+                pass
+        print("[OK] Cookies загружены из файла")
+        return True
+    except Exception as e:
+        print(f"[!] Ошибка загрузки cookies: {e}")
+        return False
+
+
+def init_driver_with_cookies():
+    """Создает драйвер и загружает cookies, при необходимости просит решить капчу"""
+    options = uc.ChromeOptions()
+    prefs = {
+        "profile.managed_default_content_settings.images": 2,
+        "profile.default_content_setting_values.images": 2,
+        "profile.managed_default_content_settings.media": 2
+    }
+    options.add_experimental_option("prefs", prefs)
+
+    driver = uc.Chrome(
+        options=options,
+        use_subprocess=True,
+        version_main=144
+    )
+
+    # Открываем сайт для установки домена
+    driver.get("https://petrovich.ru")
+    time.sleep(2)
+
+    # Пробуем загрузить сохраненные cookies
+    if load_cookies(driver):
+        # Перезагружаем страницу с cookies
+        driver.get("https://petrovich.ru")
+        time.sleep(2)
+
+        # Проверяем: если капча все еще есть, просим решить вручную
+        if _is_captcha_present(driver):
+            print("[!] Cookies устарели, нужно решить капчу заново")
+            _wait_for_manual_captcha(driver)
+            save_cookies(driver)
+    else:
+        # Нет сохраненных cookies -- проверяем наличие капчи
+        if _is_captcha_present(driver):
+            _wait_for_manual_captcha(driver)
+            save_cookies(driver)
+
+    return driver
+
+
+def _is_captcha_present(driver):
+    """Проверяет, есть ли капча на странице"""
+    page_source = driver.page_source.lower()
+    captcha_signs = ['captcha', 'recaptcha', 'challenge', 'smartcaptcha', 'checkbox-captcha']
+    return any(sign in page_source for sign in captcha_signs)
+
+
+def _wait_for_manual_captcha(driver):
+    """Ожидает ручного решения капчи пользователем"""
+    print("\n" + "=" * 60)
+    print("ОБНАРУЖЕНА КАПЧА!")
+    print("Пожалуйста, решите капчу в открытом браузере.")
+    print("После решения нажмите Enter здесь...")
+    print("=" * 60)
+    input("> ")
+    time.sleep(2)
+    print("[OK] Капча решена, продолжаем работу")
 
 
 def load_existing_data(group):
@@ -177,21 +267,7 @@ def choice_group():
 
 
 def get_pages(group):
-    options = uc.ChromeOptions()
-    prefs = {
-        "profile.managed_default_content_settings.images": 2,
-        "profile.default_content_setting_values.images": 2,
-        "profile.managed_default_content_settings.media": 2
-    }
-    options.add_experimental_option("prefs", prefs)
-
-    # Инициализация undetected_chromedriver с автоопределением
-    driver = uc.Chrome(
-        options=options,
-        use_subprocess=True,
-        version_main=144  # Указываем версию Chrome явно
-    )
-    time.sleep(1)
+    driver = init_driver_with_cookies()
 
     try:
 
@@ -261,22 +337,7 @@ def get_data(group):
     else:
         group = 'umivalniki'
 
-    options = uc.ChromeOptions()
-    prefs = {
-        "profile.managed_default_content_settings.images": 2,
-        "profile.default_content_setting_values.images": 2,
-        "profile.managed_default_content_settings.media": 2
-    }
-    options.add_experimental_option("prefs", prefs)
-
-    # Инициализация undetected_chromedriver с автоопределением
-    driver = uc.Chrome(
-        options=options,
-        use_subprocess=True,
-        version_main=144  # Указываем версию Chrome явно
-    )
-    driver.get(url="https://petrovich.ru")
-    time.sleep(2)
+    driver = init_driver_with_cookies()
 
     try:
         print("\n" + "="*60)
@@ -444,22 +505,7 @@ def retry_broken_urls(group):
     else:
         group = 'umivalniki'
 
-    options = uc.ChromeOptions()
-    prefs = {
-        "profile.managed_default_content_settings.images": 2,
-        "profile.default_content_setting_values.images": 2,
-        "profile.managed_default_content_settings.media": 2
-    }
-    options.add_experimental_option("prefs", prefs)
-
-    # Инициализация undetected_chromedriver с автоопределением
-    driver = uc.Chrome(
-        options=options,
-        use_subprocess=True,
-        version_main=144  # Указываем версию Chrome явно
-    )
-    driver.get(url="https://petrovich.ru")
-    time.sleep(2)
+    driver = init_driver_with_cookies()
 
     try:
         print("\n" + "="*60)
