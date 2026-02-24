@@ -2,7 +2,8 @@
 Модуль гармонизации данных для проекта Scraping_Russia
 Приводит различные вариации значений полей к единому стандарту
 """
-from typing import Optional
+import re
+from typing import Optional, Union
 
 
 # ============= ГАРМОНИЗАЦИЯ ЕДИНИЦ ИЗМЕРЕНИЯ =============
@@ -502,6 +503,52 @@ def get_primary_color(color: str) -> str:
     return color.strip()
 
 
+# ============= ГАРМОНИЗАЦИЯ ЦЕНЫ =============
+
+def harmonize_price(value) -> Optional[Union[int, float]]:
+    """
+    Гармонизация поля цены
+
+    Обрабатывает форматы:
+    - "2 234 ₽"    → 2234
+    - "2 234.01 ₽" → 2234.01
+    - "2 234,01 ₽" → 2234.01
+    - "999 ₽"      → 999
+    - 1234         → 1234
+
+    Пробел считается разделителем тысяч, запятая — десятичным разделителем.
+    Возвращает int если нет дробной части, float если есть.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, (int, float)):
+        result = float(value)
+        return int(result) if result == int(result) else result
+
+    value = str(value).strip()
+    if not value:
+        return None
+
+    # Оставляем только цифры, пробелы, точки и запятые
+    cleaned = re.sub(r'[^\d\s.,]', '', value).strip()
+
+    # Заменяем запятую на точку (десятичный разделитель)
+    cleaned = cleaned.replace(',', '.')
+
+    # Убираем пробелы (разделители тысяч)
+    cleaned = cleaned.replace(' ', '')
+
+    if not cleaned:
+        return None
+
+    try:
+        result = float(cleaned)
+        return int(result) if result == int(result) else result
+    except ValueError:
+        return None
+
+
 # ============= ОСНОВНАЯ ФУНКЦИЯ ГАРМОНИЗАЦИИ =============
 
 def harmonize_record(record: dict) -> dict:
@@ -540,6 +587,11 @@ def harmonize_record(record: dict) -> dict:
     if 'brand' in harmonized:
         harmonized['brand'] = harmonize_brand(
             harmonized.get('brand', '')
+        )
+
+    if 'price' in harmonized:
+        harmonized['price'] = harmonize_price(
+            harmonized.get('price')
         )
 
     if 'availability' in harmonized:
