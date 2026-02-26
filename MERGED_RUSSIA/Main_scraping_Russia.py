@@ -41,7 +41,9 @@ def safe_float(value, default=None) -> Optional[float]:
         return default
     try:
         if isinstance(value, str):
-            value = value.replace(' ', '').replace(',', '.').replace('₽', '').replace('−', '').replace('%', '').replace('-', '')
+            # re.sub убирает все виды пробелов (обычный U+0020, неразрывный U+00A0, узкий U+202F и др.)
+            import re
+            value = re.sub(r'\s', '', value).replace(',', '.').replace('₽', '').replace('−', '').replace('%', '').replace('-', '')
         return float(value)
     except (ValueError, AttributeError):
         return default

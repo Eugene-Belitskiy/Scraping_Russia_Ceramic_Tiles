@@ -536,8 +536,8 @@ def harmonize_price(value) -> Optional[Union[int, float]]:
     # Заменяем запятую на точку (десятичный разделитель)
     cleaned = cleaned.replace(',', '.')
 
-    # Убираем пробелы (разделители тысяч)
-    cleaned = cleaned.replace(' ', '')
+    # Убираем все виды пробелов (обычный U+0020, неразрывный U+00A0, узкий U+202F и др.)
+    cleaned = re.sub(r'\s', '', cleaned)
 
     if not cleaned:
         return None
