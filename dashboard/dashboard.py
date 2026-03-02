@@ -81,10 +81,10 @@ with st.sidebar:
         options=sorted(df["material"].dropna().unique()),
         default=sorted(df["material"].dropna().unique()),
     )
-    surface_types = st.multiselect(
+    surface_finishes = st.multiselect(
         "Тип поверхности",
-        options=sorted(df["surface_type"].dropna().unique()),
-        default=sorted(df["surface_type"].dropna().unique()),
+        options=sorted(df["surface_finish"].dropna().replace("", pd.NA).dropna().unique()),
+        default=sorted(df["surface_finish"].dropna().replace("", pd.NA).dropna().unique()),
     )
     formats = st.multiselect(
         "Формат",
@@ -129,8 +129,8 @@ if stores:
     filtered = filtered[filtered["store"].isin(stores)]
 if materials:
     filtered = filtered[filtered["material"].isin(materials)]
-if surface_types:
-    filtered = filtered[filtered["surface_type"].isin(surface_types)]
+if surface_finishes:
+    filtered = filtered[filtered["surface_finish"].isin(surface_finishes)]
 if formats:
     filtered = filtered[filtered["format"].isin(formats)]
 if designs:
@@ -220,12 +220,12 @@ with tab1:
         st.plotly_chart(fig4, use_container_width=True)
 
     with col_e:
-        surc = filtered["surface_type"].value_counts().head(8).reset_index()
-        surc.columns = ["surface_type", "count"]
+        surc = filtered["surface_finish"].value_counts().head(8).reset_index()
+        surc.columns = ["surface_finish", "count"]
         fig5 = px.bar(
-            surc, x="count", y="surface_type", orientation="h",
+            surc, x="count", y="surface_finish", orientation="h",
             title="Типы поверхности",
-            labels={"surface_type": "", "count": "Кол-во"},
+            labels={"surface_finish": "", "count": "Кол-во"},
         )
         fig5.update_layout(yaxis={"categoryorder": "total ascending"})
         st.plotly_chart(fig5, use_container_width=True)
@@ -317,10 +317,10 @@ with tab2:
             dp2 = filtered.copy()
             dp2["Бренд"] = dp2["brand"].apply(lambda x: "КЕРАМИН" if x == KERAMIN_BRAND else "Рынок")
             fig2 = px.box(
-                dp2, x="surface_type", y="price", color="Бренд",
+                dp2, x="surface_finish", y="price", color="Бренд",
                 color_discrete_map={"КЕРАМИН": COLOR_KERAMIN, "Рынок": COLOR_MARKET},
                 title="Цены КЕРАМИН vs рынок по типам поверхности",
-                labels={"surface_type": "Тип поверхности", "price": "Цена, руб/м²"},
+                labels={"surface_finish": "Тип поверхности", "price": "Цена, руб/м²"},
             )
             fig2.update_xaxes(tickangle=30)
             st.plotly_chart(fig2, use_container_width=True)
@@ -456,14 +456,14 @@ with tab3:
 
         with col_d:
             wa_surf = (
-                df_sw.groupby("surface_type")
+                df_sw.groupby("surface_finish")
                 .apply(weighted_avg_price).reset_index()
             )
-            wa_surf.columns = ["surface_type", "weighted_price"]
+            wa_surf.columns = ["surface_finish", "weighted_price"]
             fig5 = px.bar(
-                wa_surf, x="weighted_price", y="surface_type", orientation="h",
+                wa_surf, x="weighted_price", y="surface_finish", orientation="h",
                 title="Средневзвешенная цена по типу поверхности",
-                labels={"surface_type": "", "weighted_price": "Ср/взв цена, руб/м²"},
+                labels={"surface_finish": "", "weighted_price": "Ср/взв цена, руб/м²"},
             )
             fig5.update_layout(yaxis={"categoryorder": "total ascending"})
             st.plotly_chart(fig5, use_container_width=True)
