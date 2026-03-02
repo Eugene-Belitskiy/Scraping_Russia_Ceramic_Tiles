@@ -61,6 +61,10 @@ venv.bak/
 *~
 .DS_Store
 
+# Environment variables
+.env
+.env.*
+
 # Project-specific
 # JSON data files (результаты парсинга)
 *.json

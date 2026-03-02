@@ -2,8 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import json
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+from supabase import create_client
+
+# Загрузка .env (локально) или secrets (Streamlit Cloud)
+load_dotenv(Path(__file__).parent / ".env")
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
 
 st.set_page_config(
     page_title="Рынок керамической плитки России",
@@ -13,13 +21,26 @@ st.set_page_config(
 
 # ─── Загрузка данных ────────────────────────────────────────────────────────
 
-DATA_PATH = Path(__file__).parent.parent / "MERGED_RUSSIA" / "data_finally.json"
-
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data() -> pd.DataFrame:
-    with open(DATA_PATH, encoding="utf-8") as f:
-        data = json.load(f)
-    df = pd.DataFrame(data)
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    # Supabase возвращает максимум 1000 строк — читаем постранично
+    all_rows = []
+    page = 0
+    page_size = 1000
+    while True:
+        response = (
+            client.table("tiles")
+            .select("*")
+            .range(page * page_size, (page + 1) * page_size - 1)
+            .execute()
+        )
+        rows = response.data
+        if not rows:
+            break
+        all_rows.extend(rows)
+        page += 1
+    df = pd.DataFrame(all_rows)
     # Нормализация типов
     df["price"] = pd.to_numeric(df["price"], errors="coerce")
     df["discount"] = pd.to_numeric(df["discount"], errors="coerce")
