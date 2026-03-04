@@ -31,6 +31,19 @@ MATERIAL_FORMATS = {
     "Керамогранит": ["120x60", "60x60", "60x30", "40x40", "30x30"],
     "Клинкер":      ["40x40", "30x30", "25x5"],
 }
+RUSSIA_PREMIUM_BRANDS = ["KERAMA MARAZZI", "ITALON", "ESTIMA"]
+CENTRAL_ASIA_COUNTRIES = ["Узбекистан", "Казахстан", "Кыргызстан"]
+COMP_ORDER  = ["КЕРАМИН", "Россия (премиум)", "Россия (прочие)",
+               "Индия", "Китай", "Средняя Азия", "Прочие"]
+COMP_COLORS = {
+    "КЕРАМИН":           "#E63946",
+    "Россия (премиум)":  "#F4A261",
+    "Россия (прочие)":   "#457B9D",
+    "Индия":             "#E9C46A",
+    "Китай":             "#2A9D8F",
+    "Средняя Азия":      "#9B5DE5",
+    "Прочие":            "#CCCCCC",
+}
 
 st.set_page_config(
     page_title="Рынок керамической плитки России",
@@ -94,6 +107,46 @@ def _on_price_slider():
 def _on_disc_slider():
     st.session_state.disc_max = st.session_state["_disc_slider"]
 
+def _assign_comp_group(brand: str, country: str) -> str:
+    brand_u = str(brand).upper()
+    if brand == KERAMIN_BRAND:
+        return "КЕРАМИН"
+    if any(brand_u.startswith(pb) for pb in RUSSIA_PREMIUM_BRANDS):
+        return "Россия (премиум)"
+    if country == "Россия":
+        return "Россия (прочие)"
+    if country == "Индия":
+        return "Индия"
+    if country == "Китай":
+        return "Китай"
+    if country in CENTRAL_ASIA_COUNTRIES:
+        return "Средняя Азия"
+    return "Прочие"
+
+def _reset_filters():
+    for s in df["store"].dropna().unique():
+        st.session_state[f"store_{s}"] = True
+    for m in df["material"].dropna().unique():
+        st.session_state[f"mat_{m}"] = True
+    for m in MATERIAL_FORMATS:
+        st.session_state[f"sub_fmt_{m}"] = []
+    for s in df["surface_finish"].dropna().replace("", pd.NA).dropna().unique():
+        st.session_state[f"sf_{s}"] = True
+    st.session_state["key_formats_only"] = True
+    st.session_state["fmt_pills"] = [f for f in KEY_FORMATS if f in df["format"].dropna().unique()]
+    st.session_state["fmt_multi"] = []
+    st.session_state["designs"] = []
+    st.session_state["colors"] = []
+    st.session_state["country_mode"] = "Ключевые страны"
+    st.session_state["countries_pills"] = [c for c in KEY_COUNTRIES if c in df["country"].dropna().unique()]
+    st.session_state["countries_multi"] = sorted(df["country"].dropna().unique())
+    st.session_state.pr_lo = _price_min_default
+    st.session_state.pr_hi = 3000
+    st.session_state["_price_slider"] = (_price_min_default, 3000)
+    st.session_state.disc_max = 30
+    st.session_state["_disc_slider"] = 30
+    st.session_state["only_with_stock"] = False
+
 # ─── Сайдбар — фильтры ──────────────────────────────────────────────────────
 
 with st.sidebar:
@@ -108,7 +161,7 @@ with st.sidebar:
 
     st.divider()
     all_formats_list = sorted(df["format"].dropna().unique())
-    key_formats_only = st.checkbox("Только ключевые форматы", value=True)
+    key_formats_only = st.checkbox("Только ключевые форматы", value=True, key="key_formats_only")
 
     st.markdown("**Материал**")
     material_counts = df["material"].value_counts()
@@ -139,21 +192,23 @@ with st.sidebar:
         fmt_opts = [f for f in KEY_FORMATS if f in all_formats_list]
         formats = st.pills(
             "", options=fmt_opts, selection_mode="multi", default=fmt_opts,
-            label_visibility="collapsed",
+            label_visibility="collapsed", key="fmt_pills",
         )
     else:
         formats = st.multiselect("", options=all_formats_list, placeholder="Все форматы",
-                                 label_visibility="collapsed")
+                                 label_visibility="collapsed", key="fmt_multi")
 
     designs = st.multiselect(
         "Дизайн",
         options=sorted(df["primary_design"].dropna().unique()),
         placeholder="Все дизайны",
+        key="designs",
     )
     colors = st.multiselect(
         "Цвет",
         options=sorted(df["primary_color"].dropna().replace("", pd.NA).dropna().unique()),
         placeholder="Все цвета",
+        key="colors",
     )
 
     st.markdown("**Страна производства**")
@@ -166,11 +221,12 @@ with st.sidebar:
         country_opts = [c for c in KEY_COUNTRIES if c in all_countries_list]
         countries = st.pills(
             "Страны", options=country_opts, selection_mode="multi", default=country_opts,
-            label_visibility="collapsed",
+            label_visibility="collapsed", key="countries_pills",
         )
     else:
         countries = st.multiselect(
             "Страна", options=all_countries_list, default=all_countries_list,
+            key="countries_multi",
         )
 
     st.markdown("**Цена, руб/м²**")
@@ -212,10 +268,12 @@ with st.sidebar:
     only_with_stock = st.checkbox(
         "Только с остатками",
         value=False,
+        key="only_with_stock",
         help="Анализируются только DIY-сети: Lemana PRO, OBI, Petrovich",
     )
 
     st.divider()
+    st.button("↩ Сбросить фильтры", on_click=_reset_filters, use_container_width=True)
     st.caption(f"КЕРАМИН выделен красным на всех графиках")
 
 # ─── Применение фильтров ────────────────────────────────────────────────────
@@ -424,32 +482,20 @@ with tab2:
 
         st.divider()
 
-        col_a, col_b = st.columns(2)
-
-        with col_a:
-            top_fmt = filtered["format"].value_counts().head(12).index.tolist()
-            dp = filtered[filtered["format"].isin(top_fmt)].copy()
-            dp["Бренд"] = dp["brand"].apply(lambda x: "КЕРАМИН" if x == KERAMIN_BRAND else "Рынок")
-            fig = px.box(
-                dp, x="format", y="price", color="Бренд",
-                color_discrete_map={"КЕРАМИН": COLOR_KERAMIN, "Рынок": COLOR_MARKET},
-                title="Цены КЕРАМИН vs рынок по форматам",
-                labels={"format": "Формат", "price": "Цена, руб/м²"},
-            )
-            fig.update_xaxes(tickangle=45)
-            st.plotly_chart(fig, use_container_width=True)
-
-        with col_b:
-            dp2 = filtered.copy()
-            dp2["Бренд"] = dp2["brand"].apply(lambda x: "КЕРАМИН" if x == KERAMIN_BRAND else "Рынок")
-            fig2 = px.box(
-                dp2, x="surface_finish", y="price", color="Бренд",
-                color_discrete_map={"КЕРАМИН": COLOR_KERAMIN, "Рынок": COLOR_MARKET},
-                title="Цены КЕРАМИН vs рынок по типам поверхности",
-                labels={"surface_finish": "Тип поверхности", "price": "Цена, руб/м²"},
-            )
-            fig2.update_xaxes(tickangle=30)
-            st.plotly_chart(fig2, use_container_width=True)
+        top_fmt = filtered["format"].value_counts().head(12).index.tolist()
+        dp = filtered[filtered["format"].isin(top_fmt)].copy()
+        dp["Группа"] = dp.apply(
+            lambda r: _assign_comp_group(r["brand"], r["country"]), axis=1
+        )
+        fig = px.box(
+            dp, x="format", y="price", color="Группа",
+            color_discrete_map=COMP_COLORS,
+            category_orders={"Группа": COMP_ORDER},
+            title="Цены КЕРАМИН vs конкурентные группы по форматам",
+            labels={"format": "Формат", "price": "Цена, руб/м²"},
+        )
+        fig.update_xaxes(tickangle=45)
+        st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("Все позиции КЕРАМИН на фоне рынка")
         fig3 = go.Figure()
