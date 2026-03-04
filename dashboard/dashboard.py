@@ -26,6 +26,11 @@ KEY_FORMATS      = [
     "120x60", "60x60", "60x30", "40x40", "30x30",
     "90x30", "40x25", "30x10", "25x5",
 ]
+MATERIAL_FORMATS = {
+    "Керамика":     ["90x30", "60x30", "40x25"],
+    "Керамогранит": ["120x60", "60x60", "60x30", "40x40", "30x30"],
+    "Клинкер":      ["40x40", "30x30", "25x5"],
+}
 
 st.set_page_config(
     page_title="Рынок керамической плитки России",
@@ -101,12 +106,24 @@ with st.sidebar:
         if st.checkbox(f"{s}  ({store_counts.get(s, 0):,})", value=True, key=f"store_{s}")
     ]
 
+    all_formats_list = sorted(df["format"].dropna().unique())
+    key_formats_only = st.checkbox("Только ключевые форматы", value=True)
+
     st.markdown("**Материал**")
     material_counts = df["material"].value_counts()
-    materials = [
-        m for m in sorted(df["material"].dropna().unique())
-        if st.checkbox(f"{m}  ({material_counts.get(m, 0):,})", value=True, key=f"mat_{m}")
-    ]
+    materials = []
+    sub_format_selections = {}
+    for m in sorted(df["material"].dropna().unique()):
+        if st.checkbox(f"{m}  ({material_counts.get(m, 0):,})", value=True, key=f"mat_{m}"):
+            materials.append(m)
+        if key_formats_only and m in MATERIAL_FORMATS:
+            mat_fmt_opts = [f for f in MATERIAL_FORMATS[m] if f in all_formats_list]
+            if mat_fmt_opts:
+                sel = st.pills(
+                    "", options=mat_fmt_opts, selection_mode="multi", default=[],
+                    label_visibility="collapsed", key=f"sub_fmt_{m}",
+                )
+                sub_format_selections[m] = list(sel) if sel else []
 
     st.markdown("**Тип поверхности**")
     sf_opts = sorted(df["surface_finish"].dropna().replace("", pd.NA).dropna().unique())
@@ -115,16 +132,17 @@ with st.sidebar:
         s for s in sf_opts
         if st.checkbox(f"{s}  ({sf_counts.get(s, 0):,})", value=True, key=f"sf_{s}")
     ]
-    all_formats_list = sorted(df["format"].dropna().unique())
-    key_formats_only = st.checkbox("Только ключевые форматы", value=True)
+
+    st.markdown("**Формат**")
     if key_formats_only:
         fmt_opts = [f for f in KEY_FORMATS if f in all_formats_list]
         formats = st.pills(
-            "Формат", options=fmt_opts, selection_mode="multi", default=fmt_opts,
+            "", options=fmt_opts, selection_mode="multi", default=fmt_opts,
             label_visibility="collapsed",
         )
     else:
-        formats = st.multiselect("Формат", options=all_formats_list, placeholder="Все форматы")
+        formats = st.multiselect("", options=all_formats_list, placeholder="Все форматы",
+                                 label_visibility="collapsed")
 
     designs = st.multiselect(
         "Дизайн",
@@ -200,12 +218,23 @@ filtered = df.copy()
 
 if stores:
     filtered = filtered[filtered["store"].isin(stores)]
-if materials:
-    filtered = filtered[filtered["material"].isin(materials)]
+
+# Материал × формат: если выбраны sub-format pills — cross-фильтр, иначе обычные фильтры
+_any_sub = any(len(v) > 0 for v in sub_format_selections.values())
+if _any_sub:
+    cross = pd.Series(False, index=filtered.index)
+    for mat, fmts in sub_format_selections.items():
+        if fmts and mat in materials:
+            cross |= (filtered["material"] == mat) & (filtered["format"].isin(fmts))
+    filtered = filtered[cross]
+else:
+    if materials:
+        filtered = filtered[filtered["material"].isin(materials)]
+    if formats:
+        filtered = filtered[filtered["format"].isin(formats)]
+
 if surface_finishes:
     filtered = filtered[filtered["surface_finish"].isin(surface_finishes)]
-if formats:
-    filtered = filtered[filtered["format"].isin(formats)]
 if designs:
     filtered = filtered[filtered["primary_design"].isin(designs)]
 if countries:
