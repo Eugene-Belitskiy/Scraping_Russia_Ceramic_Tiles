@@ -571,6 +571,30 @@ with tab2:
         )
         st.plotly_chart(fig3, use_container_width=True)
 
+        st.subheader("Концентрация брендов по конкурентным группам")
+        group_brand = (
+            dp.groupby(["Группа", "brand"])
+            .size()
+            .reset_index(name="Позиций")
+        )
+        # Добавляем "root" для корректного treemap
+        group_brand["root"] = "Рынок"
+        fig_tree = px.treemap(
+            group_brand,
+            path=["root", "Группа", "brand"],
+            values="Позиций",
+            color="Группа",
+            color_discrete_map=COMP_COLORS,
+            hover_data={"Позиций": True},
+        )
+        fig_tree.update_traces(
+            texttemplate="<b>%{label}</b><br>%{value} поз.",
+            hovertemplate="<b>%{label}</b><br>Позиций: %{value}<extra></extra>",
+        )
+        fig_tree.update_layout(height=500, margin=dict(t=10, l=0, r=0, b=0))
+        st.caption("Нажмите на группу — увидите бренды внутри")
+        st.plotly_chart(fig_tree, use_container_width=True)
+
         st.subheader("Детализация: КЕРАМИН vs медиана рынка по форматам")
         market_med_fmt = df_market.groupby("format")["price"].median().rename("медиана_рынка")
         kd = df_keramin[["name","format","material","surface_type","primary_design",
