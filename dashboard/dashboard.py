@@ -654,17 +654,33 @@ with tab2:
                          "primary_color","price","store","availability","url"]].copy()
         kd = kd.merge(market_med_fmt, on="format", how="left")
         kd["vs_рынок_%"] = ((kd["price"] - kd["медиана_рынка"]) / kd["медиана_рынка"] * 100).round(1)
+
+        # Медиана по каждой конкурентной группе × формат
+        comp_groups = [g for g in COMP_ORDER if g != "КЕРАМИН"]
+        for group in comp_groups:
+            grp_med = (
+                dp[dp["Группа"] == group]
+                .groupby("format")["price"]
+                .median()
+                .rename(f"_med_{group}")
+            )
+            kd = kd.merge(grp_med, on="format", how="left")
+            col = f"vs {group}, %"
+            kd[col] = ((kd["price"] - kd[f"_med_{group}"]) / kd[f"_med_{group}"] * 100).round(1)
+            kd.drop(columns=[f"_med_{group}"], inplace=True)
+
         kd_out = kd.sort_values("vs_рынок_%").reset_index(drop=True)
-        st.dataframe(
-            kd_out,
-            use_container_width=True,
-            column_config={
-                "url": st.column_config.LinkColumn("Ссылка"),
-                "price": st.column_config.NumberColumn("Цена", format="%.0f ₽"),
-                "медиана_рынка": st.column_config.NumberColumn("Медиана рынка", format="%.0f ₽"),
-                "vs_рынок_%": st.column_config.NumberColumn("vs рынок, %", format="%.1f%%"),
-            },
-        )
+        col_config = {
+            "url": st.column_config.LinkColumn("Ссылка"),
+            "price": st.column_config.NumberColumn("Цена", format="%.0f ₽"),
+            "медиана_рынка": st.column_config.NumberColumn("Медиана рынка", format="%.0f ₽"),
+            "vs_рынок_%": st.column_config.NumberColumn("vs рынок, %", format="%.1f%%"),
+        }
+        for group in comp_groups:
+            col_config[f"vs {group}, %"] = st.column_config.NumberColumn(
+                f"vs {group}, %", format="%.1f%%"
+            )
+        st.dataframe(kd_out, use_container_width=True, column_config=col_config)
         download_button(kd_out, "keramin_vs_market.xlsx", "Скачать Excel")
 
 # ════════════════════════════════════════════════════════════════════════════
