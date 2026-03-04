@@ -550,8 +550,14 @@ with tab2:
                 mode="markers",
                 name=group,
                 marker=dict(color=COMP_COLORS[group], opacity=0.3, size=5),
-                hovertemplate=f"<b>{group}</b><br>Бренд: %{{customdata[0]}}<br>Цена: %{{y:.0f}} ₽<extra></extra>",
-                customdata=subset[["brand"]].values,
+                customdata=subset[["brand_country", "primary_design", "primary_color"]].values,
+                hovertemplate=(
+                    f"<b>{group}</b><br>"
+                    "Бренд-страна: %{customdata[0]}<br>"
+                    "Дизайн: %{customdata[1]}<br>"
+                    "Цвет: %{customdata[2]}<br>"
+                    "Цена: %{y:.0f} ₽<extra></extra>"
+                ),
                 showlegend=True,
             ))
         fig3.add_trace(go.Scatter(
@@ -560,8 +566,13 @@ with tab2:
             mode="markers",
             name="КЕРАМИН",
             marker=dict(color=COLOR_KERAMIN, size=10, symbol="diamond"),
-            text=dp_keramin["name"],
-            hovertemplate="<b>%{text}</b><br>Цена: %{y:.0f} ₽<extra></extra>",
+            customdata=dp_keramin[["name", "primary_design", "primary_color"]].values,
+            hovertemplate=(
+                "<b>%{customdata[0]}</b><br>"
+                "Дизайн: %{customdata[1]}<br>"
+                "Цвет: %{customdata[2]}<br>"
+                "Цена: %{y:.0f} ₽<extra></extra>"
+            ),
         ))
         fig3.update_layout(
             xaxis_title="Конкурентная группа",
