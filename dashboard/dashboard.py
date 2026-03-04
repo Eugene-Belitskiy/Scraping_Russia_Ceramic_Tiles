@@ -571,6 +571,48 @@ with tab2:
         )
         st.plotly_chart(fig3, use_container_width=True)
 
+        st.subheader("Средняя цена по бренд-стране в разрезе групп")
+        bc_agg = (
+            dp.groupby(["Группа", "brand_country"])["price"]
+            .mean()
+            .round(0)
+            .reset_index(name="avg_price")
+        )
+        fig_bc = go.Figure()
+        for group in COMP_ORDER:
+            if group == "КЕРАМИН":
+                continue
+            subset = bc_agg[bc_agg["Группа"] == group]
+            if len(subset) == 0:
+                continue
+            fig_bc.add_trace(go.Scatter(
+                x=[group] * len(subset),
+                y=subset["avg_price"],
+                mode="markers",
+                name=group,
+                marker=dict(color=COMP_COLORS[group], opacity=0.5, size=7),
+                customdata=subset[["brand_country", "avg_price"]].values,
+                hovertemplate="<b>%{customdata[0]}</b><br>Средняя цена: %{customdata[1]:.0f} ₽<extra></extra>",
+                showlegend=True,
+            ))
+        keramin_bc = bc_agg[bc_agg["Группа"] == "КЕРАМИН"]
+        fig_bc.add_trace(go.Scatter(
+            x=["КЕРАМИН"] * len(keramin_bc),
+            y=keramin_bc["avg_price"],
+            mode="markers",
+            name="КЕРАМИН",
+            marker=dict(color=COLOR_KERAMIN, size=12, symbol="diamond"),
+            customdata=keramin_bc[["brand_country", "avg_price"]].values,
+            hovertemplate="<b>%{customdata[0]}</b><br>Средняя цена: %{customdata[1]:.0f} ₽<extra></extra>",
+        ))
+        fig_bc.update_layout(
+            xaxis_title="Конкурентная группа",
+            yaxis_title="Средняя цена, руб/м²",
+            xaxis={"categoryorder": "array", "categoryarray": COMP_ORDER},
+            height=500,
+        )
+        st.plotly_chart(fig_bc, use_container_width=True)
+
         st.subheader("Концентрация брендов по конкурентным группам")
         group_brand = (
             dp.groupby(["Группа", "brand"])
