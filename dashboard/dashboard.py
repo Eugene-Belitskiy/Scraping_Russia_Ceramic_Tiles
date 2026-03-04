@@ -19,8 +19,8 @@ STORES_WITH_STOCK = ["LemanaPRO", "OBI", "Petrovich"]
 COLOR_KERAMIN    = "#E63946"
 COLOR_MARKET     = "#457B9D"
 KEY_COUNTRIES    = [
-    "Азербайджан", "Беларусь", "Индия", "Иран",
-    "Казахстан", "Китай", "Кыргызстан", "Россия", "Узбекистан",
+    "АЗЕРБАЙДЖАН", "БЕЛАРУСЬ", "ИНДИЯ", "ИРАН",
+    "КАЗАХСТАН", "КИТАЙ", "КЫРГЫЗСТАН", "РОССИЯ", "УЗБЕКИСТАН",
 ]
 KEY_FORMATS      = [
     "120x60", "60x60", "60x30", "40x40", "30x30",
@@ -32,8 +32,8 @@ MATERIAL_FORMATS = {
     "Клинкер":      ["40x40", "30x30", "25x5"],
 }
 RUSSIA_PREMIUM_BRANDS  = ["KERAMA", "ITALON", "ESTIMA"]
-CENTRAL_ASIA_COUNTRIES = ["Узбекистан", "Казахстан", "Кыргызстан"]
-EUROPE_COUNTRIES       = ["Польша", "Испания", "Италия"]
+CENTRAL_ASIA_COUNTRIES = ["УЗБЕКИСТАН", "КАЗАХСТАН", "КЫРГЫЗСТАН"]
+EUROPE_COUNTRIES       = ["ПОЛЬША", "ИСПАНИЯ", "ИТАЛИЯ"]
 COMP_ORDER  = ["КЕРАМИН", "Россия (премиум)", "Россия (прочие)",
                "Индия", "Китай", "Средняя Азия", "Европа", "Прочие"]
 COMP_COLORS = {
@@ -111,19 +111,20 @@ def _on_disc_slider():
 
 def _assign_comp_group(brand: str, country: str) -> str:
     brand_u = str(brand).upper()
+    country_u = str(country).upper()
     if brand == KERAMIN_BRAND:
         return "КЕРАМИН"
     if any(brand_u.startswith(pb) for pb in RUSSIA_PREMIUM_BRANDS):
         return "Россия (премиум)"
-    if country == "Россия":
+    if country_u == "РОССИЯ":
         return "Россия (прочие)"
-    if country == "Индия":
+    if country_u == "ИНДИЯ":
         return "Индия"
-    if country == "Китай":
+    if country_u == "КИТАЙ":
         return "Китай"
-    if country in CENTRAL_ASIA_COUNTRIES:
+    if country_u in CENTRAL_ASIA_COUNTRIES:
         return "Средняя Азия"
-    if country in EUROPE_COUNTRIES:
+    if country_u in EUROPE_COUNTRIES:
         return "Европа"
     return "Прочие"
 
