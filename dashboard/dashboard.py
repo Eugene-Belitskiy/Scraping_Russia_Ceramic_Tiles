@@ -1078,32 +1078,48 @@ with tab7:
             if len(subset) < 3:
                 continue
             is_keramin = group == "КЕРАМИН"
-            cd = subset[["name", "primary_design", "primary_color"]].fillna("—").values
-            fig_vio.add_trace(go.Violin(
-                y=subset["price"],
-                name=group,
-                line_color=COMP_COLORS[group],
-                fillcolor=COMP_COLORS[group],
-                opacity=0.8 if is_keramin else 0.45,
-                points="all",
-                pointpos=0,
-                jitter=0.25,
-                marker=dict(
-                    size=5 if is_keramin else 3,
-                    opacity=0.9 if is_keramin else 0.5,
-                    color=COMP_COLORS[group],
-                ),
-                meanline_visible=True,
-                box_visible=True,
-                spanmode="soft",
-                customdata=cd,
-                hovertemplate=(
+            if is_keramin:
+                cd = subset[["name", "primary_design", "primary_color"]].fillna("—").values
+                hover = (
                     "<b>%{customdata[0]}</b><br>"
                     "Цена: %{y:.0f} ₽<br>"
                     "Дизайн: %{customdata[1]}<br>"
                     "Цвет: %{customdata[2]}"
                     "<extra></extra>"
+                )
+            else:
+                cd = subset[["name", "brand", "primary_design", "primary_color"]].fillna("—").values
+                hover = (
+                    "<b>%{customdata[0]}</b><br>"
+                    "Бренд: %{customdata[1]}<br>"
+                    "Цена: %{y:.0f} ₽<br>"
+                    "Дизайн: %{customdata[2]}<br>"
+                    "Цвет: %{customdata[3]}"
+                    "<extra></extra>"
+                )
+            fig_vio.add_trace(go.Violin(
+                y=subset["price"],
+                name=group,
+                line_color=COMP_COLORS[group],
+                fillcolor=COMP_COLORS[group],
+                opacity=0.8 if is_keramin else 0.35,
+                points="all",
+                pointpos=0,
+                jitter=0.3,
+                marker=dict(
+                    size=7 if is_keramin else 5,
+                    opacity=1.0,
+                    color="#ffffff" if is_keramin else "#1a1a1a",
+                    line=dict(
+                        color=COMP_COLORS[group],
+                        width=2 if is_keramin else 1,
+                    ),
                 ),
+                meanline_visible=True,
+                box_visible=True,
+                spanmode="soft",
+                customdata=cd,
+                hovertemplate=hover,
             ))
         fig_vio.update_layout(
             yaxis_title="Цена, руб/м²",
