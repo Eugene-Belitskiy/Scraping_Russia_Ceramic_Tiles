@@ -78,6 +78,11 @@ chromedriver*
 
 # Cookies
 *.pkl
+cookies_*
+
+# URL lists (промежуточные файлы парсеров)
+url_list_*.txt
+url_break_list_*.txt
 
 # Logs
 *.log

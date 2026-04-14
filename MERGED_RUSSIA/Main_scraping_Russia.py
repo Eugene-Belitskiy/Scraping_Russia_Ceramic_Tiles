@@ -1,4 +1,5 @@
 import json
+import hashlib
 from datetime import datetime
 import time
 from pathlib import Path
@@ -31,9 +32,110 @@ replacements = {
 }
 
 total_base = []
+known_products: dict = {}   # product_id -> product_dict (загружается из products.json)
 
 
 # ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
+
+def make_product_id(url: str) -> str:
+    """Стабильный 16-символьный hex ID, производный от URL товара."""
+    return hashlib.md5(url.encode('utf-8')).hexdigest()[:16]
+
+
+def split_card(card: dict) -> tuple:
+    """Разделяет гармонизированную карточку на (product_dict, price_dict)."""
+    pid = make_product_id(card['url'])
+    date = card.get('date', '')
+
+    product = {
+        'product_id':      pid,
+        'date_added':      date,
+        'url':             card.get('url', ''),
+        'store':           card.get('store', ''),
+        'name':            card.get('name', ''),
+        'color':           card.get('color', ''),
+        'primary_color':   card.get('primary_color', ''),
+        'collection':      card.get('collection', ''),
+        'brand':           card.get('brand', ''),
+        'country':         card.get('country', ''),
+        'brand_country':   card.get('brand_country', ''),
+        'thickness':       card.get('thickness'),
+        'original_format': card.get('original_format', ''),
+        'format':          card.get('format'),
+        'design':          card.get('design', ''),
+        'primary_design':  card.get('primary_design', ''),
+        'material':        card.get('material', ''),
+        'surface_type':    card.get('surface_type', ''),
+        'surface_finish':  card.get('surface_finish', ''),
+        'structure':       card.get('structure', ''),
+        'patterns_count':  card.get('patterns_count', ''),
+        'package_size':    card.get('package_size'),
+        'price_unit':      card.get('price_unit', ''),
+    }
+
+    price = {
+        'price_id':          f"{pid}_{date}",
+        'product_id':        pid,
+        'store':             card.get('store', ''),
+        'date':              date,
+        'time':              card.get('time', ''),
+        'price':             card.get('price'),
+        'price_range':       card.get('price_range'),
+        'discount':          card.get('discount'),
+        'discount_range':    card.get('discount_range'),
+        'availability':      card.get('availability', ''),
+        'total_stock':       card.get('total_stock'),
+        'total_stock_units': card.get('total_stock_units'),
+    }
+
+    return product, price
+
+
+def load_known_products() -> dict:
+    """Загружает products.json -> dict[product_id -> record]. Возвращает {} если файл отсутствует."""
+    p = MERGED_DIR / 'products.json'
+    if not p.exists():
+        print("[*] products.json не найден — создам новый")
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding='utf-8'))
+        print(f"[+] Загружено {len(data)} товаров из products.json")
+        return {r['product_id']: r for r in data}
+    except json.JSONDecodeError:
+        print("[!] products.json повреждён — начинаю заново")
+        return {}
+
+
+def save_two_tables(known: dict, new_products: list, new_prices: list):
+    """Записывает products.json (все товары) и дописывает новые записи в prices.json."""
+    # products — полная перезапись (known уже содержит старые + новые)
+    all_products = list(known.values())
+    (MERGED_DIR / 'products.json').write_text(
+        json.dumps(all_products, ensure_ascii=False, indent=4), encoding='utf-8')
+    print(f"[OK] products.json: {len(all_products)} всего (+{len(new_products)} новых)")
+
+    # prices — дописываем только те, которых ещё нет (дедупликация по price_id)
+    prices_file = MERGED_DIR / 'prices.json'
+    existing = []
+    if prices_file.exists():
+        try:
+            existing = json.loads(prices_file.read_text(encoding='utf-8'))
+        except json.JSONDecodeError:
+            print("[!] prices.json повреждён — начинаю заново")
+            existing = []
+
+    existing_ids = {p['price_id'] for p in existing}
+    to_add = [p for p in new_prices if p['price_id'] not in existing_ids]
+    skipped = len(new_prices) - len(to_add)
+
+    all_prices = existing + to_add
+    prices_file.write_text(
+        json.dumps(all_prices, ensure_ascii=False, indent=4), encoding='utf-8')
+
+    if skipped:
+        print(f"[*] Пропущено {skipped} записей цен (уже есть за эту дату)")
+    print(f"[OK] prices.json: {len(all_prices)} всего (+{len(to_add)} новых)")
+
 
 def safe_float(value, default=None) -> Optional[float]:
     """Безопасное преобразование в float"""
@@ -780,22 +882,43 @@ def remove_full_duplicates(filename='data_finally.json'):
 
 def main():
     """Главная функция запуска обработки всех источников"""
+    global known_products
+
     print("=" * 60)
     print("НАЧАЛО ОБРАБОТКИ ДАННЫХ")
     print(f"Период данных: {cur_data_file}")
     print("=" * 60)
 
+    # Загрузка существующего каталога товаров
+    known_products = load_known_products()
+
     # Загрузка данных из всех источников
     get_data_LemanaPRO()
     get_data_OBI()
     get_data_Petrovich()
-    get_data_keramogranit_ru()  # ИСПРАВЛЕНО: добавлен вызов функции
+    get_data_keramogranit_ru()
 
     print("\n" + "=" * 60)
     print(f"ИТОГО обработано: {len(total_base)} записей")
     print("=" * 60)
 
-    # Сохранение данных
+    # Разбиваем карточки на товары и записи цен
+    new_products, new_prices = [], []
+    for card in total_base:
+        pid = make_product_id(card['url'])
+        product, price = split_card(card)
+        if pid not in known_products:
+            known_products[pid] = product
+            new_products.append(product)
+        new_prices.append(price)
+
+    print(f"[*] Новых товаров: {len(new_products)}")
+    print(f"[*] Записей цен: {len(new_prices)}")
+
+    # Сохраняем products.json и prices.json
+    save_two_tables(known_products, new_products, new_prices)
+
+    # Временно: обновляем data_finally.json для совместимости с дашбордом
     append_data()
     remove_full_duplicates()
 

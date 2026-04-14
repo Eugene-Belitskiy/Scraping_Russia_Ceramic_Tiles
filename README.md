@@ -49,9 +49,17 @@ Scraping_Russia/
 │   └── data_MM.YYYY_KeramogranitRu.json
 │
 ├── MERGED_RUSSIA/
-│   ├── Main_scraping_Russia.py   # Главный скрипт объединения данных
-│   ├── harmonization.py          # Модуль гармонизации данных
-│   └── data_finally.json         # Итоговый унифицированный файл
+│   ├── Main_scraping_Russia.py     # Главный скрипт объединения данных
+│   ├── harmonization.py            # Модуль гармонизации данных
+│   ├── migrate_to_two_tables.py    # Одноразовая миграция (запустить один раз)
+│   ├── products.json               # База товаров — статические характеристики
+│   └── prices.json                 # История цен и остатков по месяцам
+│
+├── dashboard/
+│   ├── dashboard.py                # Streamlit-дашборд
+│   ├── upload_to_supabase.py       # Загрузка данных в Supabase
+│   ├── create_tables_v2.sql        # Схема БД: products + prices + tiles_v2
+│   └── requirements.txt            # Зависимости дашборда
 │
 ├── ChromeDriver/                 # ChromeDriver для Selenium
 ├── .gitignore
@@ -84,6 +92,22 @@ pip install -r requirements.txt
 
 ## Использование
 
+### Первичная настройка (один раз)
+
+```bash
+# 1. Установить зависимости
+pip install -r requirements.txt
+
+# 2. Применить схему БД в Supabase (SQL Editor)
+#    Выполнить содержимое dashboard/create_tables_v2.sql
+
+# 3. Конвертировать существующий data_finally.json в два файла
+python MERGED_RUSSIA/migrate_to_two_tables.py
+
+# 4. Загрузить данные в Supabase
+python dashboard/upload_to_supabase.py
+```
+
 ### 1. Запуск парсинга отдельных источников
 
 Каждый источник имеет свой отдельный скрипт:
@@ -113,14 +137,41 @@ python MERGED_RUSSIA/Main_scraping_Russia.py
 ```
 
 Этот скрипт:
-1. Загружает данные из всех источников
-2. Фильтрует товары по материалу (Керамогранит, Керамика, Клинкер)
-3. Нормализует форматы плитки
-4. Рассчитывает диапазоны цен и скидок
+1. Загружает существующий каталог товаров (`products.json`)
+2. Загружает свежие данные из всех источников
+3. Фильтрует товары по материалу (Керамогранит, Керамика, Клинкер)
+4. Нормализует форматы плитки, рассчитывает диапазоны цен и скидок
 5. Применяет гармонизацию данных
-6. Добавляет основные поля для упрощения фильтрации
-7. Удаляет дубликаты
-8. Сохраняет результат в `MERGED_RUSSIA/data_finally.json`
+6. Добавляет новые товары в `products.json` (уже существующие пропускаются)
+7. Добавляет новые записи цен в `prices.json`
+
+### 3. Загрузка в Supabase
+
+```bash
+python dashboard/upload_to_supabase.py
+```
+
+Загружает `products.json` и `prices.json` через upsert — исторические данные не удаляются.
+
+---
+
+### 4. Запуск дашборда локально
+
+```bash
+# 1. Установить зависимости дашборда
+pip install -r dashboard/requirements.txt
+
+# 2. Создать файл dashboard/.env
+#    SUPABASE_URL=https://ваш-проект.supabase.co
+#    SUPABASE_KEY=ваш-anon-key
+
+# 3. Запустить
+streamlit run dashboard/dashboard.py
+```
+
+Дашборд откроется в браузере по адресу `http://localhost:8501`
+
+> **Примечание:** дашборд читает данные из Supabase, поэтому интернет-соединение и заполненный `.env` обязательны. Данные кешируются на 1 час (`ttl=3600`).
 
 ---
 
@@ -163,7 +214,17 @@ python MERGED_RUSSIA/Main_scraping_Russia.py
 
 ## Формат выходных данных
 
-Итоговый файл `data_finally.json` содержит массив объектов со следующей структурой:
+Данные хранятся в двух файлах:
+
+- **`products.json`** — каталог товаров (статика, пополняется только новыми товарами)
+- **`prices.json`** — история цен и остатков (растёт с каждым мониторингом)
+
+Идентификатор товара: `product_id = md5(url)[:16]` — стабильный между запусками.
+Идентификатор записи цены: `price_id = "{product_id}_{date}"` — один снимок в день.
+
+### Структура записи (объединённый вид)
+
+Пример объекта, каким он выглядит в Supabase-вью `tiles_v2`:
 
 ```json
 {

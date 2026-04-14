@@ -1,9 +1,15 @@
 """
-Загрузка данных из data_finally.json в Supabase.
+Загрузка данных из products.json и prices.json в Supabase.
 Запускать после каждого обновления данных (раз в месяц).
 
+Стратегия загрузки:
+- products: upsert по product_id — никогда не удаляет исторические данные
+- prices:   upsert по price_id   — идемпотентно, безопасно перезапускать
+
+ВАЖНО: сначала загружаются products, потом prices (из-за внешнего ключа).
+
 Использование:
-    python upload_to_supabase.py
+    python dashboard/upload_to_supabase.py
 """
 
 import json
@@ -19,61 +25,67 @@ load_dotenv(Path(__file__).parent / ".env")
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
 
-DATA_PATH = Path(__file__).parent.parent / "MERGED_RUSSIA" / "data_finally.json"
-TABLE_NAME = "tiles"
-BATCH_SIZE = 100   # Небольшой батч чтобы не таймаутить
-MAX_RETRIES = 3
+MERGED_DIR     = Path(__file__).parent.parent / "MERGED_RUSSIA"
+PRODUCTS_PATH  = MERGED_DIR / "products.json"
+PRICES_PATH    = MERGED_DIR / "prices.json"
+PRODUCTS_TABLE = "products"
+PRICES_TABLE   = "prices"
+BATCH_SIZE     = 100   # Небольшой батч чтобы не таймаутить
+MAX_RETRIES    = 3
 
 
 def clean_record(record: dict) -> dict:
-    """Убирает пустые строки -> null."""
-    cleaned = {}
-    for k, v in record.items():
-        if isinstance(v, str) and v.strip() == "":
-            cleaned[k] = None
-        else:
-            cleaned[k] = v
-    return cleaned
+    """Заменяет пустые строки на null для корректной записи в Supabase."""
+    return {
+        k: (None if isinstance(v, str) and v.strip() == "" else v)
+        for k, v in record.items()
+    }
 
 
-def insert_batch(client, batch: list, attempt: int = 1):
+def upsert_batch(client, table: str, batch: list, attempt: int = 1):
     try:
-        client.table(TABLE_NAME).insert(batch).execute()
+        client.table(table).upsert(batch).execute()
     except Exception as e:
         if attempt < MAX_RETRIES:
-            print(f"\n[!] Ошибка, повтор {attempt}/{MAX_RETRIES}: {e}")
+            print(f"\n[!] Ошибка {table}, повтор {attempt}/{MAX_RETRIES}: {e}")
             time.sleep(2)
-            insert_batch(client, batch, attempt + 1)
+            upsert_batch(client, table, batch, attempt + 1)
         else:
             raise
+
+
+def upload_table(client, table_name: str, data_path: Path):
+    """Загружает все записи из JSON-файла в таблицу Supabase через upsert."""
+    if not data_path.exists():
+        print(f"[!] Файл не найден: {data_path} — пропускаю")
+        return
+
+    print(f"\n[*] Загрузка: {data_path.name} -> таблица '{table_name}'")
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    total = len(data)
+    print(f"[+] Записей в файле: {total:,}")
+
+    uploaded = 0
+    for i in range(0, total, BATCH_SIZE):
+        batch = [clean_record(r) for r in data[i:i + BATCH_SIZE]]
+        upsert_batch(client, table_name, batch)
+        uploaded += len(batch)
+        pct = uploaded / total * 100
+        print(f"[>] {uploaded:,} / {total:,} ({pct:.1f}%)", end="\r")
+
+    print(f"\n[OK] {table_name}: {uploaded:,} записей загружено (upsert)")
 
 
 def upload():
     print("[*] Подключение к Supabase...")
     client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    print(f"[*] Загрузка файла: {DATA_PATH}")
-    with open(DATA_PATH, encoding="utf-8") as f:
-        data = json.load(f)
-    print(f"[+] Загружено {len(data):,} записей")
+    # products загружаем первыми (prices имеет FK на products)
+    upload_table(client, PRODUCTS_TABLE, PRODUCTS_PATH)
+    upload_table(client, PRICES_TABLE, PRICES_PATH)
 
-    # Очищаем таблицу перед загрузкой (полная перезапись)
-    print("[*] Очистка таблицы...")
-    client.table(TABLE_NAME).delete().neq("id", 0).execute()
-    print("[+] Таблица очищена")
-
-    # Загружаем батчами
-    total = len(data)
-    uploaded = 0
-
-    for i in range(0, total, BATCH_SIZE):
-        batch = [clean_record(r) for r in data[i:i + BATCH_SIZE]]
-        insert_batch(client, batch)
-        uploaded += len(batch)
-        pct = uploaded / total * 100
-        print(f"[>] {uploaded:,} / {total:,} ({pct:.1f}%)", end="\r")
-
-    print(f"\n[OK] Загрузка завершена: {uploaded:,} записей в таблице '{TABLE_NAME}'")
+    print("\n[OK] ЗАГРУЗКА ЗАВЕРШЕНА УСПЕШНО!")
 
 
 if __name__ == "__main__":

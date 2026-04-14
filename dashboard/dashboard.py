@@ -63,7 +63,7 @@ def load_data() -> pd.DataFrame:
     page_size = 1000
     while True:
         response = (
-            client.table("tiles")
+            client.table("tiles_v2")
             .select("*")
             .range(page * page_size, (page + 1) * page_size - 1)
             .execute()
